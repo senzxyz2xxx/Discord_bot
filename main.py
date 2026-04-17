@@ -59,38 +59,38 @@ def send_webhook(payload):
     except Exception as e:
         print(f"❌ Webhook Error: {e}")
 
-# =======================
-# 🎤 VC GUARDIAN FUNCTIONS
-# =======================
-async def join_vc():
-    channel = bot.get_channel(VC_CHANNEL_ID)
-    if not channel:
-        print(f"⚠️ Could not find VC Channel: {VC_CHANNEL_ID}")
-        return
-    if not bot.voice_clients:
-        try:
-            vc = await channel.connect()
-            if os.path.exists("silence.mp3"):
-                vc.play(discord.FFmpegPCMAudio("silence.mp3"))
-        except Exception as e:
-            print(f"VC Join Error: {e}")
+# # =======================
+# # 🎤 VC GUARDIAN FUNCTIONS
+# # =======================
+# async def join_vc():
+#     channel = bot.get_channel(VC_CHANNEL_ID)
+#     if not channel:
+#         print(f"⚠️ Could not find VC Channel: {VC_CHANNEL_ID}")
+#         return
+#     if not bot.voice_clients:
+#         try:
+#             vc = await channel.connect()
+#             if os.path.exists("silence.mp3"):
+#                 vc.play(discord.FFmpegPCMAudio("silence.mp3"))
+#         except Exception as e:
+#             print(f"VC Join Error: {e}")
 
-@tasks.loop(seconds=30)
-async def vc_guard():
-    vc = discord.utils.get(bot.voice_clients)
-    if not vc or not vc.is_connected():
-        await join_vc()
+# @tasks.loop(seconds=30)
+# async def vc_guard():
+#     vc = discord.utils.get(bot.voice_clients)
+#     if not vc or not vc.is_connected():
+#         await join_vc()
 
-@tasks.loop(hours=1)
-async def hourly_report():
-    channel = bot.get_channel(REPORT_CHANNEL_ID)
-    if not channel: return
-    uptime_sec = int(time.time() - start_time)
-    hours, minutes = uptime_sec // 3600, (uptime_sec % 3600) // 60
-    embed = discord.Embed(title="🟢 VC Guardian Report", color=0x00ff9d)
-    embed.add_field(name="Status", value="Connected", inline=True)
-    embed.add_field(name="Uptime", value=f"{hours}h {minutes}m", inline=True)
-    await channel.send(embed=embed)
+# @tasks.loop(hours=1)
+# async def hourly_report():
+#     channel = bot.get_channel(REPORT_CHANNEL_ID)
+#     if not channel: return
+#     uptime_sec = int(time.time() - start_time)
+#     hours, minutes = uptime_sec // 3600, (uptime_sec % 3600) // 60
+#     embed = discord.Embed(title="🟢 VC Guardian Report", color=0x00ff9d)
+#     embed.add_field(name="Status", value="Connected", inline=True)
+#     embed.add_field(name="Uptime", value=f"{hours}h {minutes}m", inline=True)
+#     await channel.send(embed=embed)
 
 # =======================
 # 📡 TRACKER EVENTS
