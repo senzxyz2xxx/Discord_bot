@@ -316,17 +316,17 @@ def send_webhook(payload):
 @bot.event
 async def on_ready():
     print(f'✅ Logged in as {bot.user}')
-    if not vc_guard.is_running(): 
-        vc_guard.start()
-    await join_vc()
+    print("🛰️ กำลังเริ่มระบบ Tracker (Avatar & Status)...")
     
-    # Initial Cache สำหรับ Target Users
+    # 📦 ส่วนนี้ห้ามลบ ถ้ายังอยากให้มันแจ้งเตือนตอนเปลี่ยนรูป/สถานะ
     for guild in bot.guilds:
         for member in guild.members:
             if member.id in TARGET_USERS:
                 avatar_cache[member.id] = str(member.display_avatar.url)
                 status_cache[member.id] = str(member.status)
-
+    
+    print("🚀 ระบบ Tracker พร้อมทำงาน 100%!")
+    
 @bot.command()
 async def sp(ctx):
     uptime_sec = int(time.time() - start_time)
