@@ -213,7 +213,6 @@
 
 
 
-
 import discord
 from discord.ext import commands, tasks
 import requests
@@ -234,7 +233,8 @@ def home():
     return "Multi-Function Bot is Online!"
 
 def run_web():
-    port = int(os.environ.get("PORT", 10000))
+    # แก้ไข port ให้รองรับการรันบนหลาย Platform
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
 
 def keep_alive():
@@ -250,9 +250,10 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 VC_CHANNEL_ID = 1486323364891987998
 REPORT_CHANNEL_ID = 1400530676218073280
-TARGET_USERS = [697788108611125399, 1290655706877530148,1005357318281641994]
+TARGET_USERS = [697788108611125399, 1290655706877530148, 1005357318281641994]
 NOTIFY_ID = 1005357318281641994
 
+# ตั้งค่า Intents (สำคัญ: ต้องเปิดใน Developer Portal ด้วย)
 intents = discord.Intents.default()
 intents.presences = True
 intents.members = True
@@ -268,7 +269,8 @@ spotify_cache = {}
 start_time = time.time()
 
 def send_webhook(payload):
-    if not WEBHOOK_URL:
+    if not WEBHOOK_URL or not WEBHOOK_URL.startswith("http"):
+        print("⚠️ Webhook URL ไม่ถูกต้อง หรือไม่ได้ตั้งค่า")
         return
     try:
         requests.post(WEBHOOK_URL, json=payload, timeout=5)
@@ -279,24 +281,31 @@ def send_webhook(payload):
 # 🎤 VC GUARDIAN (ระบบสิงห้อง)
 # =======================
 async def join_vc():
-    channel = bot.get_channel(VC_CHANNEL_ID)
-    if not channel:
-        print(f"⚠️ ไม่พบห้อง VC: {VC_CHANNEL_ID}")
-        return
-    
-    vc = discord.utils.get(bot.voice_clients, guild=channel.guild)
-    
-    # ถ้ายังไม่ได้เชื่อมต่อ หรือเชื่อมอยู่แต่ผิดห้อง ให้ต่อใหม่
-    if not vc or not vc.is_connected() or vc.channel.id != VC_CHANNEL_ID:
-        try:
-            if vc and vc.is_connected():
-                await vc.disconnect(force=True)
+    try:
+        channel = bot.get_channel(VC_CHANNEL_ID)
+        if not channel:
+            # ลอง fetch กรณี get_channel หาไม่เจอใน cache
+            try:
+                channel = await bot.fetch_channel(VC_CHANNEL_ID)
+            except:
+                print(f"⚠️ ไม่พบห้อง VC ID: {VC_CHANNEL_ID}")
+                return
+        
+        # ตรวจสอบว่าบอทเชื่อมต่ออยู่หรือไม่
+        guild = channel.guild
+        vc = discord.utils.get(bot.voice_clients, guild=guild)
+        
+        if not vc or not vc.is_connected():
             await channel.connect(reconnect=True, timeout=20.0)
             print(f"✅ บอทสิงเข้าห้อง: {channel.name}")
-        except Exception as e:
-            print(f"VC Join Error: {e}")
+        elif vc.channel.id != VC_CHANNEL_ID:
+            await vc.move_to(channel)
+            print(f"🔁 ย้ายบอทไปห้อง: {channel.name}")
+            
+    except Exception as e:
+        print(f"❌ VC Join Error: {e}")
 
-@tasks.loop(seconds=15) # ตรวจสอบทุก 15 วินาทีเพื่อให้มั่นใจว่าไม่หลุดนาน
+@tasks.loop(seconds=20)
 async def vc_guard():
     await join_vc()
 
@@ -307,10 +316,11 @@ async def vc_guard():
 @bot.event
 async def on_ready():
     print(f'✅ Logged in as {bot.user}')
-    if not vc_guard.is_running(): vc_guard.start()
+    if not vc_guard.is_running(): 
+        vc_guard.start()
     await join_vc()
     
-    # Initial Cache
+    # Initial Cache สำหรับ Target Users
     for guild in bot.guilds:
         for member in guild.members:
             if member.id in TARGET_USERS:
@@ -319,16 +329,13 @@ async def on_ready():
 
 @bot.command()
 async def sp(ctx):
-    # คำนวณ Uptime (วัน/ชม./นาที)
     uptime_sec = int(time.time() - start_time)
     days = uptime_sec // 86400
     hours = (uptime_sec % 86400) // 3600
     minutes = (uptime_sec % 3600) // 60
     
-    # ตรวจสอบปิง
     ping = round(bot.latency * 1000)
     
-    # ประเมินโอกาสหลุด
     if ping < 150:
         stability = "🟢 ต่ำมาก (เสถียรมาก)"
     elif ping < 350:
@@ -345,26 +352,30 @@ async def sp(ctx):
     status_text = f"✅ สิงอยู่ที่: {vc.channel.name}" if vc and vc.is_connected() else "❌ หลุดจากห้อง (กำลังกลับเข้า)"
     embed.add_field(name="🎙️ สถานะ Voice", value=status_text, inline=False)
     
-    embed.set_footer(text=f"เช็คสถานะ ณ เวลา")
+    embed.set_footer(text="เช็คสถานะ ณ เวลา")
     embed.timestamp = discord.utils.utcnow()
     await ctx.send(embed=embed)
 
 @bot.event
 async def on_presence_update(before, after):
     if after.id not in TARGET_USERS: return
-    # (คงฟังก์ชันเดิมของคุณไว้ทั้งหมด...)
+    
     new_status = str(after.status)
     if status_cache.get(after.id) != new_status:
         status_cache[after.id] = new_status
         status_map = {"online": "🟢 Online", "idle": "🌙 Idle", "dnd": "⛔ DND", "offline": "⚫ Offline"}
         color_map = {"online": 0x00ff00, "idle": 0xFFD700, "dnd": 0xFF0000, "offline": 0x808080}
-        embed = {"title": "📢 Status Change!", "description": f"**{after.name}** เปลี่ยนเป็น **{status_map.get(new_status, new_status)}**", "color": color_map.get(new_status, 0x808080), "timestamp": discord.utils.utcnow().isoformat()}
+        
+        embed = {
+            "title": "📢 Status Change!", 
+            "description": f"**{after.name}** เปลี่ยนเป็น **{status_map.get(new_status, new_status)}**", 
+            "color": color_map.get(new_status, 0x808080), 
+            "timestamp": discord.utils.utcnow().isoformat()
+        }
         send_webhook({"content": f"<@{NOTIFY_ID}>", "embeds": [embed]})
-
 
 @bot.event
 async def on_user_update(before, after):
-    """ ตรวจสอบการเปลี่ยนรูปโปรไฟล์ (Global) """
     if after.id not in TARGET_USERS: return
 
     old_avatar = avatar_cache.get(after.id)
@@ -379,23 +390,21 @@ async def on_user_update(before, after):
             "image": {"url": new_avatar},
             "thumbnail": {"url": old_avatar} if old_avatar else {},
             "fields": [
-                {"name": "👤 ผู้ใช้", "value": f"{after.name}#{after.discriminator}", "inline": True},
+                {"name": "👤 ผู้ใช้", "value": f"{after.name}", "inline": True},
                 {"name": "🆔 ID", "value": str(after.id), "inline": True}
             ],
-            "footer": {"text": "รูปเล็กด้านขวาคือรูปเก่า | รูปใหญ่คือรูปใหม่"},
+            "footer": {"text": "รูปเล็กคือรูปเก่า | รูปใหญ่คือรูปใหม่"},
             "timestamp": discord.utils.utcnow().isoformat()
         }
         send_webhook({"content": f"<@{NOTIFY_ID}>", "embeds": [embed]})
 
-
-
 @bot.event
 async def on_voice_state_update(member, before, after):
-    # ถ้าบอทโดนเตะ หรือห้องที่บอทอยู่ไม่มีใครอยู่เลย (ถ้าต้องการให้สิงตลอด)
+    # บอทโดนเตะ หรือห้องไม่มีใครอยู่ ให้พยายามกลับเข้าห้อง
     if member.id == bot.user.id and after.channel is None:
         await join_vc()
     
-    # ระบบ Track Target Users เดิม
+    # แจ้งเตือนคนเข้า-ออกห้อง VC
     if member.id in TARGET_USERS and before.channel != after.channel:
         msg = ""
         color = 0x000000
@@ -408,6 +417,7 @@ async def on_voice_state_update(member, before, after):
         else:
             msg = f"🔁 **{member.name}** ย้ายห้อง ➜ **{after.channel.name}**"
             color = 0xf1c40f
+            
         if msg:
             embed = {"description": msg, "color": color, "timestamp": discord.utils.utcnow().isoformat()}
             send_webhook({"content": f"<@{NOTIFY_ID}>", "embeds": [embed]})
@@ -421,4 +431,6 @@ if __name__ == "__main__":
         try:
             bot.run(TOKEN)
         except Exception as e:
-            print(f"❌ Startup Error: {e}")
+            print(f"❌ Startup Error: {e}\n(ตรวจสอบว่าได้เปิด Intents ใน Discord Developer Portal หรือยัง?)")
+    else:
+        print("❌ ไม่พบ DISCORD_TOKEN ใน Environment Variables")
