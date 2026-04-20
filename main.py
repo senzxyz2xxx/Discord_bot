@@ -250,7 +250,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 VC_CHANNEL_ID = 1486323364891987998
 REPORT_CHANNEL_ID = 1400530676218073280
-TARGET_USERS = [697788108611125399, 1290655706877530148, 1005357318281641994]
+TARGET_USERS = [697788108611125399, 1290655706877530148]
 NOTIFY_ID = 1005357318281641994
 
 # ตั้งค่า Intents (สำคัญ: ต้องเปิดใน Developer Portal ด้วย)
@@ -277,37 +277,37 @@ def send_webhook(payload):
     except Exception as e:
         print(f"❌ Webhook Error: {e}")
 
-# =======================
-# 🎤 VC GUARDIAN (ระบบสิงห้อง)
-# =======================
-async def join_vc():
-    try:
-        channel = bot.get_channel(VC_CHANNEL_ID)
-        if not channel:
-            # ลอง fetch กรณี get_channel หาไม่เจอใน cache
-            try:
-                channel = await bot.fetch_channel(VC_CHANNEL_ID)
-            except:
-                print(f"⚠️ ไม่พบห้อง VC ID: {VC_CHANNEL_ID}")
-                return
+# # =======================
+# # 🎤 VC GUARDIAN (ระบบสิงห้อง)
+# # =======================
+# async def join_vc():
+#     try:
+#         channel = bot.get_channel(VC_CHANNEL_ID)
+#         if not channel:
+#             # ลอง fetch กรณี get_channel หาไม่เจอใน cache
+#             try:
+#                 channel = await bot.fetch_channel(VC_CHANNEL_ID)
+#             except:
+#                 print(f"⚠️ ไม่พบห้อง VC ID: {VC_CHANNEL_ID}")
+#                 return
         
-        # ตรวจสอบว่าบอทเชื่อมต่ออยู่หรือไม่
-        guild = channel.guild
-        vc = discord.utils.get(bot.voice_clients, guild=guild)
+#         # ตรวจสอบว่าบอทเชื่อมต่ออยู่หรือไม่
+#         guild = channel.guild
+#         vc = discord.utils.get(bot.voice_clients, guild=guild)
         
-        if not vc or not vc.is_connected():
-            await channel.connect(reconnect=True, timeout=20.0)
-            print(f"✅ บอทสิงเข้าห้อง: {channel.name}")
-        elif vc.channel.id != VC_CHANNEL_ID:
-            await vc.move_to(channel)
-            print(f"🔁 ย้ายบอทไปห้อง: {channel.name}")
+#         if not vc or not vc.is_connected():
+#             await channel.connect(reconnect=True, timeout=20.0)
+#             print(f"✅ บอทสิงเข้าห้อง: {channel.name}")
+#         elif vc.channel.id != VC_CHANNEL_ID:
+#             await vc.move_to(channel)
+#             print(f"🔁 ย้ายบอทไปห้อง: {channel.name}")
             
-    except Exception as e:
-        print(f"❌ VC Join Error: {e}")
+#     except Exception as e:
+#         print(f"❌ VC Join Error: {e}")
 
-@tasks.loop(seconds=20)
-async def vc_guard():
-    await join_vc()
+# @tasks.loop(seconds=20)
+# async def vc_guard():
+#     await join_vc()
 
 # =======================
 # 📡 TRACKER & COMMANDS
