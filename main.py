@@ -250,7 +250,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 VC_CHANNEL_ID = 1486323364891987998
 REPORT_CHANNEL_ID = 1400530676218073280
-TARGET_USERS = [697788108611125399, 1290655706877530148]
+TARGET_USERS = [697788108611125399, 1290655706877530148,1005357318281641994]
 NOTIFY_ID = 1005357318281641994
 
 intents = discord.Intents.default()
@@ -360,6 +360,34 @@ async def on_presence_update(before, after):
         color_map = {"online": 0x00ff00, "idle": 0xFFD700, "dnd": 0xFF0000, "offline": 0x808080}
         embed = {"title": "📢 Status Change!", "description": f"**{after.name}** เปลี่ยนเป็น **{status_map.get(new_status, new_status)}**", "color": color_map.get(new_status, 0x808080), "timestamp": discord.utils.utcnow().isoformat()}
         send_webhook({"content": f"<@{NOTIFY_ID}>", "embeds": [embed]})
+
+
+@bot.event
+async def on_user_update(before, after):
+    """ ตรวจสอบการเปลี่ยนรูปโปรไฟล์ (Global) """
+    if after.id not in TARGET_USERS: return
+
+    old_avatar = avatar_cache.get(after.id)
+    new_avatar = str(after.display_avatar.url)
+
+    if old_avatar != new_avatar:
+        avatar_cache[after.id] = new_avatar
+        embed = {
+            "title": "🖼️ New Avatar Detected!",
+            "description": f"**{after.name}** ได้ทำการเปลี่ยนรูปโปรไฟล์ใหม่",
+            "color": 0x9b59b6,
+            "image": {"url": new_avatar},
+            "thumbnail": {"url": old_avatar} if old_avatar else {},
+            "fields": [
+                {"name": "👤 ผู้ใช้", "value": f"{after.name}#{after.discriminator}", "inline": True},
+                {"name": "🆔 ID", "value": str(after.id), "inline": True}
+            ],
+            "footer": {"text": "รูปเล็กด้านขวาคือรูปเก่า | รูปใหญ่คือรูปใหม่"},
+            "timestamp": discord.utils.utcnow().isoformat()
+        }
+        send_webhook({"content": f"<@{NOTIFY_ID}>", "embeds": [embed]})
+
+
 
 @bot.event
 async def on_voice_state_update(member, before, after):
